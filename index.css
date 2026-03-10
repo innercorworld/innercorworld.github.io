@@ -8,9 +8,9 @@ body, html {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #5C94FC; /* 슈퍼마리오 클래식 하늘색 */
+    background-color: #5C94FC; 
     font-family: 'Fredoka', sans-serif;
-    /* 귀여운 사람 모양 마우스 커서 (빨간색 몸통에 흰색 테두리) */
+    /* 귀여운 사람 모양 마우스 커서 */
     cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24'><path fill='%23E52521' stroke='%23FFFFFF' stroke-width='1.5' d='M12,2A2,2 0 0,1 14,4A2,2 0 0,1 12,6A2,2 0 0,1 10,4A2,2 0 0,1 12,2M10.5,7H13.5A2,2 0 0,1 15.5,9V14.5H14V22H10V14.5H8.5V9A2,2 0 0,1 10.5,7Z'/></svg>") 18 18, auto;
 }
 
@@ -26,7 +26,6 @@ body, html {
 .mario-title {
     font-size: 5rem;
     letter-spacing: 5px;
-    /* 닌텐도 스타일의 두꺼운 검은 테두리와 3D 그림자 */
     -webkit-text-stroke: 3px #000000;
     text-shadow: 6px 6px 0px #000000, 0px 0px 20px rgba(255,255,255,0.5);
     display: flex;
@@ -34,7 +33,6 @@ body, html {
     gap: 2px;
 }
 
-/* 글자들이 파도처럼 둥둥거리며 뛰는 애니메이션 */
 .mario-title span {
     display: inline-block;
     animation: bounceWave 2s infinite ease-in-out;
@@ -59,7 +57,20 @@ body, html {
     50% { transform: translateY(-15px); }
 }
 
-/* 닌텐도 스타일 배경 구름 */
+.hint-text {
+    margin-top: 20px;
+    font-size: 1.5rem;
+    color: white;
+    -webkit-text-stroke: 1px #000000;
+    text-shadow: 2px 2px 0px #000;
+    animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
 .cloud {
     position: absolute;
     background: white;
@@ -68,7 +79,6 @@ body, html {
     border-radius: 50px;
     z-index: 1;
     opacity: 0.9;
-    /* 검은색 외곽선으로 만화 같은 느낌 부여 */
     box-shadow: 0 4px 0px rgba(0,0,0,0.1), inset 0 -5px 0px #e0e0e0;
 }
 .cloud::before, .cloud::after {
@@ -86,7 +96,6 @@ body, html {
     top: -45px; right: 20px;
 }
 
-/* 구름 배치 */
 .cloud1 { top: 20%; left: 10%; transform: scale(0.8); }
 .cloud2 { top: 35%; right: 15%; transform: scale(1.2); }
 .cloud3 { top: 60%; left: 5%; transform: scale(0.6); }
