@@ -1,127 +1,82 @@
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// 1. 씬(Scene), 카메라(Camera), 렌더러(Renderer) 기본 설정
+const scene = new THREE.Scene();
 
-let particlesArray = [];
-// 파티클 개수를 화면 크기에 비례하게 설정
-const numberOfParticles = (canvas.width * canvas.height) / 12000; 
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.z = 4.5; // 카메라를 뒤로 빼서 구체가 화면 중앙에 오도록 배치
 
-let mouse = {
-    x: null,
-    y: null,
-    radius: 120 // 마우스에 반응하여 갈라지는 반경
-};
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer.domElement);
 
-window.addEventListener('mousemove', function(event) {
-    mouse.x = event.x;
-    mouse.y = event.y;
-});
+// 2. 조명(Lighting) 설정 - 클레이 질감을 완성하는 부드러운 빛
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 전체를 감싸는 은은한 빛
+scene.add(ambientLight);
 
-window.addEventListener('mouseout', function() {
-    mouse.x = undefined;
-    mouse.y = undefined;
-});
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+directionalLight.position.set(5, 5, 5); // 입체감을 주는 측면 빛
+scene.add(directionalLight);
 
-class Particle {
-    constructor(x, y, size, color, weight) {
-        this.x = x;
-        this.y = y;
-        this.size = size;
-        this.color = color;
-        this.weight = weight;
-        this.baseX = this.x;
-        this.baseY = this.y;
-        this.density = (Math.random() * 30) + 1;
-    }
+// 3. 지형 텍스쳐 코드로 생성 (외부 이미지 파일 없이 자체 렌더링)
+function createEarthTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
 
-    draw() {
-        ctx.fillStyle = this.color;
+    // 클레이 느낌의 톤다운된 파란색 바다
+    ctx.fillStyle = '#4a8bad';
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // 클레이 느낌의 초록색 대륙 (랜덤한 원형을 겹쳐 대륙 형태 생성)
+    ctx.fillStyle = '#8abf5c';
+    for (let i = 0; i < 70; i++) {
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.closePath();
+        const x = Math.random() * 1024;
+        const y = Math.random() * 512;
+        const radius = Math.random() * 50 + 15;
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
     }
-
-    update() {
-        // 마우스와 파티클 사이의 거리와 방향 계산
-        let dx = mouse.x - this.x;
-        let dy = mouse.y - this.y;
-        let distance = Math.sqrt(dx * dx + dy * dy);
-        let forceDirectionX = dx / distance;
-        let forceDirectionY = dy / distance;
-        let maxDistance = mouse.radius;
-        let force = (maxDistance - distance) / maxDistance;
-        let directionX = forceDirectionX * force * this.density;
-        let directionY = forceDirectionY * force * this.density;
-
-        // 마우스가 가까이 오면 밀어내기 (갈라지는 효과)
-        if (distance < mouse.radius) {
-            this.x -= directionX;
-            this.y -= directionY;
-        } else {
-            // 마우스가 멀어지면 원래 자리로 천천히 복귀
-            if (this.x !== this.baseX) {
-                let dx = this.x - this.baseX;
-                this.x -= dx / 25;
-            }
-            if (this.y !== this.baseY) {
-                let dy = this.y - this.baseY;
-                this.y -= dy / 25;
-            }
-        }
-    }
+    return new THREE.CanvasTexture(canvas);
 }
 
-function init() {
-    particlesArray = [];
-    for (let i = 0; i < numberOfParticles; i++) {
-        let size = (Math.random() * 1.5) + 0.5;
-        let x = (Math.random() * ((innerWidth - size * 2) - (size * 2)) + size * 2);
-        let y = (Math.random() * ((innerHeight - size * 2) - (size * 2)) + size * 2);
-        let color = 'rgba(255, 255, 255, 0.6)'; // 은은한 흰색
-        particlesArray.push(new Particle(x, y, size, color, 1));
-    }
-}
+// 4. 지구(구체) 생성 및 재질(Material) 적용
+const geometry = new THREE.SphereGeometry(1.5, 64, 64); // 표면을 부드럽게 깎기 위해 64 분할
+const material = new THREE.MeshStandardMaterial({
+    map: createEarthTexture(),
+    roughness: 0.9, // 거칠기를 극대화하여 번들거림 없는 클레이(점토) 매트한 느낌 부여
+    metalness: 0.0, // 쇠 같은 느낌 완전 제거
+});
 
-// 파티클들을 선으로 연결하여 유기적인 그물망(물결) 느낌 생성
-function connect() {
-    let opacityValue = 1;
-    for (let a = 0; a < particlesArray.length; a++) {
-        for (let b = a; b < particlesArray.length; b++) {
-            let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x))
-            + ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
-            
-            if (distance < 8000) {
-                opacityValue = 1 - (distance / 8000);
-                ctx.strokeStyle = 'rgba(255, 255, 255,' + opacityValue * 0.2 + ')';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
-                ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
-                ctx.stroke();
-            }
-        }
-    }
-}
+const earth = new THREE.Mesh(geometry, material);
+scene.add(earth);
 
+// 5. 마우스 드래그 컨트롤 설정
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; // 드래그 후 부드럽게 미끄러지는 감속 효과
+controls.dampingFactor = 0.05;
+controls.enableZoom = false; // 마우스 휠로 확대/축소 비활성화 (중심 크기 고정)
+controls.enablePan = false;  // 우클릭으로 위치 이동 비활성화 (중심점 고정)
+
+// 6. 애니메이션 루프 (매 프레임 렌더링)
 function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let i = 0; i < particlesArray.length; i++) {
-        particlesArray[i].update();
-        particlesArray[i].draw();
-    }
-    connect();
     requestAnimationFrame(animate);
+    
+    // 가만히 둬도 지구가 아주 천천히 자전하게 만들려면 아래 주석(//)을 지워주세요.
+    // earth.rotation.y += 0.001; 
+    
+    controls.update(); // enableDamping 작동을 위해 매 프레임 업데이트
+    renderer.render(scene, camera);
 }
-
-init();
 animate();
 
-// 창 크기가 변할 때 캔버스 크기 재조정
-window.addEventListener('resize', function() {
-    canvas.width = innerWidth;
-    canvas.height = innerHeight;
-    init();
+// 7. 브라우저 창 크기 조절 시 반응형 처리
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 });
