@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-// --- 1. 기본 설정 ---
+// --- 1. 기본 씬 설정 ---
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 8); 
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -13,83 +12,20 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 document.body.appendChild(renderer.domElement);
 
-// --- 2. 조명 설정 (반사광 제거, 폭신하고 매트한 느낌) ---
-scene.add(new THREE.AmbientLight(0xffffff, 1.2)); // 그림자 없이 전체를 부드럽게 밝힘
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.5); // 하늘과 바닥 빛을 동일하게 주어 뽀송한 느낌 추가
+// --- 2. 조명 설정 (폭신하고 매트한 느낌) ---
+// 쨍한 반사광(DirectionalLight)을 모두 빼고, 부드럽게 감싸는 조명만 남겼습니다.
+scene.add(new THREE.AmbientLight(0xffffff, 1.2)); 
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.5); 
 scene.add(hemiLight);
 
 // --- 3. 평면도 맵핑된 클레이 지구 만들기 ---
-const earthRadius = 1.75; // [요청1] 기존 2.5 크기의 70%로 축소
+const earthRadius = 1.75; // 크기 70%로 축소
 const earthGeometry = new THREE.SphereGeometry(earthRadius, 256, 256); 
 
-let earthMaterial;
-const textureLoader = new THREE.TextureLoader();
-
-const earthTexture = textureLoader.load('earth_texture.png', (texture) => {
-    // [반응속도 최적화] 입체감을 계산하는 도화지 크기를 확 줄여서 픽셀 연산 속도를 10배 이상 높입니다.
-    const canvas = document.createElement('canvas');
-    const calcWidth = 512;  // 계산용 해상도 대폭 축소
-    const calcHeight = 256;
-    canvas.width = calcWidth;
-    canvas.height = calcHeight;
-    
-    // willReadFrequently 옵션을 켜서 브라우저가 더 빨리 이미지를 읽도록 만듦
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(texture.image, 0, 0, calcWidth, calcHeight);
-    
-    const imgData = ctx.getImageData(0, 0, calcWidth, calcHeight);
-    const data = imgData.data;
-    
-    // 축소된 픽셀만 빠르게 계산하므로 지연 시간이 사라집니다.
-    for (let i = 0; i < data.length; i += 4) {
-        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        data[i] = data[i + 1] = data[i + 2] = avg;
-    }
-    ctx.putImageData(imgData, 0, 0);
-    
-    const grayTexture = new THREE.CanvasTexture(canvas);
-    
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.repeat.set(0.9, 0.8); 
-    texture.offset.set(0.05, 0.1); 
-    
-    grayTexture.wrapS = THREE.ClampToEdgeWrapping;
-    grayTexture.wrapT = THREE.ClampToEdgeWrapping;
-    grayTexture.repeat.set(0.9, 0.8);
-    grayTexture.offset.set(0.05, 0.1);
-
-    earthMaterial.displacementMap = grayTexture;
-    earthMaterial.displacementScale = 0.1; 
-    earthMaterial.displacementBias = -0.01; 
-    earthMaterial.needsUpdate = true; 
-});
-    
-    const grayTexture = new THREE.CanvasTexture(canvas);
-    
-    // [요청4] 경계선 및 꼭지점 꼬집힘 해결 (텍스처를 꽉 채우지 않고 여백을 바다로 연장)
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.repeat.set(0.9, 0.8); // 좌우 90%, 상하 80%만 맵핑
-    texture.offset.set(0.05, 0.1); // 남은 여백이 위아래 대칭이 되도록 중앙 정렬
-    
-    grayTexture.wrapS = THREE.ClampToEdgeWrapping;
-    grayTexture.wrapT = THREE.ClampToEdgeWrapping;
-    grayTexture.repeat.set(0.9, 0.8);
-    grayTexture.offset.set(0.05, 0.1);
-
-    earthMaterial.displacementMap = grayTexture;
-    earthMaterial.displacementScale = 0.1; // 지구가 작아졌으니 튀어나오는 비율도 자연스럽게 조절
-    earthMaterial.displacementBias = -0.01; 
-    earthMaterial.needsUpdate = true; 
-});
-
-earthTexture.colorSpace = THREE.SRGBColorSpace; 
-
-// [요청3] 조명 반사가 아예 없는 폭신하고 매트한 재질
-earthMaterial = new THREE.MeshStandardMaterial({
-    map: earthTexture,
-    roughness: 1.0,  // 완전 매트하게
+// 재질 먼저 생성 (완전 매트하게)
+const earthMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff, // 이미지가 로딩되기 전 기본 배경색
+    roughness: 1.0,  
     metalness: 0.0,
     flatShading: false
 });
@@ -97,6 +33,49 @@ earthMaterial = new THREE.MeshStandardMaterial({
 const earth = new THREE.Mesh(earthGeometry, earthMaterial);
 scene.add(earth);
 
+// 텍스처 로딩 및 최적화 맵핑
+const textureLoader = new THREE.TextureLoader();
+textureLoader.load('earth_texture.png', (texture) => {
+    // 1) 원본 텍스처 설정 (색감 및 꼬집힘 방지 여백 설정)
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.repeat.set(0.9, 0.8); // 텍스처를 꽉 채우지 않아 자연스럽게 이어지게 함
+    texture.offset.set(0.05, 0.1); 
+
+    // 2) 로딩 속도 최적화를 위한 입체감(그레이스케일) 도화지 세팅
+    const canvas = document.createElement('canvas');
+    const calcWidth = 512;  
+    const calcHeight = 256;
+    canvas.width = calcWidth;
+    canvas.height = calcHeight;
+    
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(texture.image, 0, 0, calcWidth, calcHeight);
+    
+    const imgData = ctx.getImageData(0, 0, calcWidth, calcHeight);
+    const data = imgData.data;
+    
+    // 픽셀 연산 (초록색은 튀어나오게, 파란색은 들어가게 흑백 처리)
+    for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        data[i] = data[i + 1] = data[i + 2] = avg;
+    }
+    ctx.putImageData(imgData, 0, 0);
+    
+    const grayTexture = new THREE.CanvasTexture(canvas);
+    grayTexture.wrapS = THREE.ClampToEdgeWrapping;
+    grayTexture.wrapT = THREE.ClampToEdgeWrapping;
+    grayTexture.repeat.set(0.9, 0.8);
+    grayTexture.offset.set(0.05, 0.1);
+
+    // 3) 재질에 텍스처와 입체감 업데이트
+    earthMaterial.map = texture;
+    earthMaterial.displacementMap = grayTexture;
+    earthMaterial.displacementScale = 0.1; 
+    earthMaterial.displacementBias = -0.01; 
+    earthMaterial.needsUpdate = true; // 브라우저에 변경사항 알림
+});
 
 // --- 4. 마우스 드래그 컨트롤 (자전축 고정) ---
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -104,7 +83,7 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.enableZoom = false; 
 controls.enablePan = false; 
-controls.minPolarAngle = Math.PI / 2; // 상하 회전 고정 (팽이처럼)
+controls.minPolarAngle = Math.PI / 2; 
 controls.maxPolarAngle = Math.PI / 2; 
 
 // --- 5. 애니메이션 루프 ---
@@ -112,7 +91,7 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
 
-    earth.rotation.y += 0.0002; // [요청2] 기존(0.002)의 0.1배속으로 아주 천천히 회전
+    earth.rotation.y += 0.0002; // 아주 느리게 0.1배속 회전
 
     renderer.render(scene, camera);
 }
@@ -122,7 +101,7 @@ animate();
 function updateCamera() {
     camera.aspect = window.innerWidth / window.innerHeight;
     
-    // 모바일 화면일 때 카메라를 더 뒤로 빼서 작고 귀엽게 보이도록 조정
+    // 모바일 화면일 때 카메라를 더 뒤로 빼서 지구가 잘리지 않도록 조정
     if (window.innerWidth < 768) {
         camera.position.z = 10; 
     } else {
@@ -134,4 +113,4 @@ function updateCamera() {
 }
 
 window.addEventListener('resize', updateCamera);
-updateCamera(); // 처음 페이지 로드 시에도 한 번 실행되도록 추가
+updateCamera(); // 초기 실행
