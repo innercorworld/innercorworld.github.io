@@ -31,7 +31,7 @@ const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64);
 const textureLoader = new THREE.TextureLoader();
 
 // 사용자가 저장한 이미지 경로 불러오기
-const earthTexture = textureLoader.load('earth_texture.jpg');
+const earthTexture = textureLoader.load('earth_texture.png');
 earthTexture.colorSpace = THREE.SRGBColorSpace; // 선명한 색감 보정
 
 // 재질 생성 (이미지를 그대로 덮어씌움)
