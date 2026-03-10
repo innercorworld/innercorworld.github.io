@@ -14,7 +14,7 @@ body, html {
 
 .content {
     position: absolute;
-    top: 15%; /* 텍스트를 상단에 배치하여 지구와 겹치지 않게 함 */
+    top: 50%; /* 텍스트를 상단에 배치하여 지구와 겹치지 않게 함 */
     width: 100%;
     text-align: center;
     z-index: 10;
@@ -24,7 +24,7 @@ body, html {
 h1 {
     color: #ffffff;
     font-size: 3rem;
-    font-weight: 300;
+    font-weight: 800;
     letter-spacing: 4px;
     text-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
     animation: fadeIn 2s ease-in-out;
