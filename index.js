@@ -26,20 +26,44 @@ let earthMaterial;
 const textureLoader = new THREE.TextureLoader();
 
 const earthTexture = textureLoader.load('earth_texture.png', (texture) => {
+    // [반응속도 최적화] 입체감을 계산하는 도화지 크기를 확 줄여서 픽셀 연산 속도를 10배 이상 높입니다.
     const canvas = document.createElement('canvas');
-    canvas.width = texture.image.width;
-    canvas.height = texture.image.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(texture.image, 0, 0);
+    const calcWidth = 512;  // 계산용 해상도 대폭 축소
+    const calcHeight = 256;
+    canvas.width = calcWidth;
+    canvas.height = calcHeight;
     
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    // willReadFrequently 옵션을 켜서 브라우저가 더 빨리 이미지를 읽도록 만듦
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(texture.image, 0, 0, calcWidth, calcHeight);
+    
+    const imgData = ctx.getImageData(0, 0, calcWidth, calcHeight);
     const data = imgData.data;
     
+    // 축소된 픽셀만 빠르게 계산하므로 지연 시간이 사라집니다.
     for (let i = 0; i < data.length; i += 4) {
         const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
         data[i] = data[i + 1] = data[i + 2] = avg;
     }
     ctx.putImageData(imgData, 0, 0);
+    
+    const grayTexture = new THREE.CanvasTexture(canvas);
+    
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.repeat.set(0.9, 0.8); 
+    texture.offset.set(0.05, 0.1); 
+    
+    grayTexture.wrapS = THREE.ClampToEdgeWrapping;
+    grayTexture.wrapT = THREE.ClampToEdgeWrapping;
+    grayTexture.repeat.set(0.9, 0.8);
+    grayTexture.offset.set(0.05, 0.1);
+
+    earthMaterial.displacementMap = grayTexture;
+    earthMaterial.displacementScale = 0.1; 
+    earthMaterial.displacementBias = -0.01; 
+    earthMaterial.needsUpdate = true; 
+});
     
     const grayTexture = new THREE.CanvasTexture(canvas);
     
