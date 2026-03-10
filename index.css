@@ -8,7 +8,7 @@ body, html {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #1a1a1a; /* 클레이 질감이 돋보이는 차분한 다크 그레이 */
+    background-color: #ffffff; /* 클레이 질감이 돋보이는 차분한 다크 그레이 */
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
