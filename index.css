@@ -99,13 +99,20 @@ body, html {
 /* --- 도마뱀 발자국 스타일 --- */
 .lizard-footprint {
     position: absolute;
-    width: 30px;  /* 기존 마우스 포인터보다 약 1.2배 큰 사이즈 */
-    height: 30px;
-    pointer-events: none; /* 클릭을 방해하지 않도록 설정 */
+    width: 38px;  /* 뭉툭함을 살리기 위해 크기 살짝 키움 */
+    height: 38px;
+    pointer-events: none; 
     z-index: 9999;
     transform-origin: center;
-    /* 3초 동안 유지되다가 서서히 사라짐 */
-    animation: fadeOutFootprint 3s forwards;
+    /* 1.5초로 시간 단축 */
+    animation: fadeOutFootprint 1.5s forwards;
+}
+
+/* 회전 각도(var(--rot))를 유지하면서 크기만 줄어들도록 수정 */
+@keyframes fadeOutFootprint {
+    0% { opacity: 1; transform: rotate(var(--rot)) scale(1); }
+    70% { opacity: 0.8; transform: rotate(var(--rot)) scale(0.9); } 
+    100% { opacity: 0; transform: rotate(var(--rot)) scale(0.4); } 
 }
 
 @keyframes fadeOutFootprint {
