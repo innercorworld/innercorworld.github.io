@@ -64,3 +64,15 @@ body, html {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-15px); }
 }
+
+
+/* 모바일 반응형: 화면이 작아지면 타이틀 크기 축소 */
+@media (max-width: 768px) {
+    .mario-title {
+        font-size: 2.5rem;
+        -webkit-text-stroke: 2px #000000;
+    }
+    .content {
+        top: 15%;
+    }
+}
