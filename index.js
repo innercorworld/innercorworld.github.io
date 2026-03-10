@@ -1,80 +1,116 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-// 1. 씬(Scene), 카메라(Camera), 렌더러(Renderer) 기본 설정
+// 1. 씬, 카메라, 렌더러 설정
 const scene = new THREE.Scene();
-
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.z = 4.5; // 카메라를 뒤로 빼서 구체가 화면 중앙에 오도록 배치
+camera.position.set(0, 0, 7); // 카메라를 정면에서 약간 떨어트림
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
+// 클레이의 부드러운 그림자를 위해 톤 매핑 설정
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(renderer.domElement);
 
-// 2. 조명(Lighting) 설정 - 클레이 질감을 완성하는 부드러운 빛
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 전체를 감싸는 은은한 빛
+// 2. 찰흙 질감을 돋보이게 하는 다중 조명 (스튜디오 라이팅)
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 전체 밝기
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(5, 5, 5); // 입체감을 주는 측면 빛
-scene.add(directionalLight);
+const mainLight = new THREE.DirectionalLight(0xfff5e6, 1.5); // 따뜻한 주광 (오른쪽 위)
+mainLight.position.set(5, 5, 5);
+scene.add(mainLight);
 
-// 3. 지형 텍스쳐 코드로 생성 (외부 이미지 파일 없이 자체 렌더링)
-function createEarthTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
+const fillLight = new THREE.DirectionalLight(0xaaccff, 0.8); // 차가운 보조광 (왼쪽 아래, 그림자 색감 풍부하게)
+fillLight.position.set(-5, -2, -5);
+scene.add(fillLight);
 
-    // 클레이 느낌의 톤다운된 파란색 바다
-    ctx.fillStyle = '#4a8bad';
-    ctx.fillRect(0, 0, 1024, 512);
+// 3. 울퉁불퉁한 클레이 지구 지오메트리 생성
+const geometry = new THREE.SphereGeometry(2, 128, 128);
+const positionAttribute = geometry.attributes.position;
+const vertex = new THREE.Vector3();
+const colors = [];
+const color = new THREE.Color();
 
-    // 클레이 느낌의 초록색 대륙 (랜덤한 원형을 겹쳐 대륙 형태 생성)
-    ctx.fillStyle = '#8abf5c';
-    for (let i = 0; i < 70; i++) {
-        ctx.beginPath();
-        const x = Math.random() * 1024;
-        const y = Math.random() * 512;
-        const radius = Math.random() * 50 + 15;
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
+// 정점(Vertex)의 높낮이를 조작하여 산과 계곡(찰흙 자국)을 만듭니다.
+for (let i = 0; i < positionAttribute.count; i++) {
+    vertex.fromBufferAttribute(positionAttribute, i);
+    const basePosition = new THREE.Vector3().copy(vertex).normalize();
+    
+    // 사인파를 겹쳐서 대륙과 산맥의 형태를 계산 (Macro noise)
+    const nx = basePosition.x * 2.5;
+    const ny = basePosition.y * 2.5;
+    const nz = basePosition.z * 2.5;
+    const landNoise = Math.sin(nx)*Math.cos(ny) + Math.sin(ny)*Math.cos(nz) + Math.sin(nz)*Math.cos(nx);
+    
+    // 손가락 자국 같은 자잘한 질감 계산 (Micro noise)
+    const microNoise = Math.sin(nx*15)*Math.cos(ny*15)*Math.sin(nz*15) * 0.05;
+    
+    let bump = 0;
+    let isLand = false;
+
+    // landNoise 값이 높으면 대륙(산맥), 낮으면 바다
+    if (landNoise > 0.4) { 
+        bump = landNoise * 0.2 + microNoise; // 대륙은 튀어나오게
+        isLand = true;
+    } else {
+        bump = landNoise * 0.05 + microNoise * 0.8; // 바다는 상대적으로 평평하지만 찰흙 느낌 유지
     }
-    return new THREE.CanvasTexture(canvas);
+
+    // 꼭짓점의 위치를 튀어나오게 조정
+    vertex.copy(basePosition).multiplyScalar(2 + bump);
+    positionAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
+
+    // 높낮이에 따라 색상 칠하기
+    if (isLand) {
+        color.setHex(0x8ABF5C); // 클레이 느낌의 초록색 (육지)
+    } else {
+        color.setHex(0x2D82B5); // 클레이 느낌의 짙은 파란색 (바다)
+    }
+
+    // 찰흙 특유의 색상 불균형(얼룩덜룩함) 추가
+    color.r += (Math.random() - 0.5) * 0.05;
+    color.g += (Math.random() - 0.5) * 0.05;
+    color.b += (Math.random() - 0.5) * 0.05;
+    
+    colors.push(color.r, color.g, color.b);
 }
 
-// 4. 지구(구체) 생성 및 재질(Material) 적용
-const geometry = new THREE.SphereGeometry(1.5, 64, 64); // 표면을 부드럽게 깎기 위해 64 분할
+// 조명이 울퉁불퉁한 표면을 인식하도록 법선 재계산
+geometry.computeVertexNormals();
+geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+// 4. 매트한 클레이 재질(Material) 설정
 const material = new THREE.MeshStandardMaterial({
-    map: createEarthTexture(),
-    roughness: 0.9, // 거칠기를 극대화하여 번들거림 없는 클레이(점토) 매트한 느낌 부여
-    metalness: 0.0, // 쇠 같은 느낌 완전 제거
+    vertexColors: true,
+    roughness: 1.0,  // 빛 반사 없이 완전 매트하게
+    metalness: 0.0,
+    flatShading: false // 부드럽게 이어지는 찰흙 질감
 });
 
-const earth = new THREE.Mesh(geometry, material);
-scene.add(earth);
+const clayEarth = new THREE.Mesh(geometry, material);
+scene.add(clayEarth);
 
-// 5. 마우스 드래그 컨트롤 설정
+// 5. 마우스 드래그 컨트롤 (자전축 고정)
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; // 드래그 후 부드럽게 미끄러지는 감속 효과
+controls.enableDamping = true;
 controls.dampingFactor = 0.05;
-controls.enableZoom = false; // 마우스 휠로 확대/축소 비활성화 (중심 크기 고정)
-controls.enablePan = false;  // 우클릭으로 위치 이동 비활성화 (중심점 고정)
+controls.enableZoom = false; 
+controls.enablePan = false; 
 
-// 6. 애니메이션 루프 (매 프레임 렌더링)
+// 자전축 고정 핵심 코드: 위/아래로 굴러가지 않고 팽이처럼 좌우로만 회전하도록 각도 제한
+controls.minPolarAngle = Math.PI / 2; // 상하 회전각도 고정 (90도)
+controls.maxPolarAngle = Math.PI / 2; 
+
+// 6. 애니메이션 렌더링 루프
 function animate() {
     requestAnimationFrame(animate);
-    
-    // 가만히 둬도 지구가 아주 천천히 자전하게 만들려면 아래 주석(//)을 지워주세요.
-    // earth.rotation.y += 0.001; 
-    
-    controls.update(); // enableDamping 작동을 위해 매 프레임 업데이트
+    controls.update();
     renderer.render(scene, camera);
 }
 animate();
 
-// 7. 브라우저 창 크기 조절 시 반응형 처리
+// 7. 창 크기 반응형
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
