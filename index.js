@@ -114,3 +114,69 @@ function updateCamera() {
 
 window.addEventListener('resize', updateCamera);
 updateCamera(); // 초기 실행
+
+// --- 7. 도마뱀 발자국 트래킹 이펙트 ---
+// 비비드하고 밝은 톤온톤 노란색 배열
+const yellows = ['#FFEA00', '#FFD700', '#FFC107', '#FFFF00', '#F9A825', '#FFB300']; 
+let lastX = 0;
+let lastY = 0;
+let isLeftFoot = true; // 왼발, 오른발 교차를 위한 스위치
+
+// 귀여운 도마뱀(게코) 발자국 SVG 디자인
+const lizardSvg = `
+<svg viewBox="0 0 100 100" fill="currentColor" style="width: 100%; height: 100%;">
+    <circle cx="50" cy="70" r="14"/> <path d="M50 70 L20 40" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="20" cy="40" r="7"/> <path d="M50 70 L40 20" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="40" cy="20" r="7"/> <path d="M50 70 L60 20" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="60" cy="20" r="7"/> <path d="M50 70 L80 40" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="80" cy="40" r="7"/> </svg>`;
+
+window.addEventListener('mousemove', (e) => {
+    const currentX = e.clientX;
+    const currentY = e.clientY;
+    
+    // 마우스가 이동한 거리 계산
+    const dx = currentX - lastX;
+    const dy = currentY - lastY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // 35px 이상 이동했을 때만 발자국 생성 (너무 빽빽하게 겹치지 않도록 조절)
+    if (distance > 35) {
+        // 이동 방향의 각도 계산 (SVG가 위를 향하고 있어 90도 보정)
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90; 
+        
+        const footprint = document.createElement('div');
+        footprint.classList.add('lizard-footprint');
+        footprint.innerHTML = lizardSvg;
+        
+        // 랜덤한 비비드 옐로우 컬러 적용
+        footprint.style.color = yellows[Math.floor(Math.random() * yellows.length)];
+        
+        // 아장아장 걷는 느낌을 위해 진행 방향의 좌/우로 엇갈리게 좌표 수정
+        const offset = isLeftFoot ? -8 : 8;
+        const offsetX = currentX + Math.cos((angle) * Math.PI / 180) * offset;
+        const offsetY = currentY + Math.sin((angle) * Math.PI / 180) * offset;
+        
+        // 중심을 맞추기 위해 크기의 절반(15px)만큼 빼서 배치
+        footprint.style.left = `${offsetX - 15}px`;
+        footprint.style.top = `${offsetY - 15}px`;
+        footprint.style.transform = `rotate(${angle}deg)`;
+        
+        document.body.appendChild(footprint);
+        
+        // 발 교체 및 현재 위치 저장
+        isLeftFoot = !isLeftFoot;
+        lastX = currentX;
+        lastY = currentY;
+        
+        // 3초(3000ms) 후 브라우저에서 요소 완전히 삭제
+        setTimeout(() => {
+            footprint.remove();
+        }, 3000);
+    }
+});
+
+
+
+
+
