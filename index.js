@@ -177,6 +177,52 @@ window.addEventListener('mousemove', (e) => {
 });
 
 
+// --- 8. 마우스 클릭 시 레오파드 게코 뿅! 효과 ---
+window.addEventListener('click', (e) => {
+    const x = e.clientX;
+    const y = e.clientY;
 
+    // 1. 레오파드 게코(도마뱀 이모지) 생성
+    const gecko = document.createElement('div');
+    gecko.classList.add('gecko-popup');
+    gecko.innerText = '🦎'; // 귀여운 도마뱀 이모지
+    gecko.style.left = `${x}px`;
+    gecko.style.top = `${y}px`;
+    document.body.appendChild(gecko);
+
+    // 1초 뒤에 화면에서 깔끔하게 지우기
+    setTimeout(() => {
+        gecko.remove();
+    }, 1000);
+
+    // 2. 뿅! 터지는 장난스러운 파티클 생성 (마리오 컬러 테마)
+    const popColors = ['#E52521', '#049CD8', '#FBD000', '#43B047'];
+    
+    for (let i = 0; i < 6; i++) {
+        const particle = document.createElement('div');
+        particle.classList.add('pop-particle');
+        // 랜덤 색상 지정
+        particle.style.backgroundColor = popColors[Math.floor(Math.random() * popColors.length)];
+        particle.style.left = `${x}px`;
+        particle.style.top = `${y}px`;
+        
+        // 파티클이 사방으로 퍼져나갈 둥근 각도와 거리 계산
+        const angle = (Math.PI * 2 / 6) * i + (Math.random() * 0.5);
+        const distance = 50 + Math.random() * 30; // 퍼져나가는 거리
+        const tx = Math.cos(angle) * distance;
+        const ty = Math.sin(angle) * distance;
+        
+        // CSS 애니메이션(var(--tx), var(--ty))으로 도착 지점 값 넘겨주기
+        particle.style.setProperty('--tx', `${tx}px`);
+        particle.style.setProperty('--ty', `${ty}px`);
+        
+        document.body.appendChild(particle);
+        
+        // 파티클도 애니메이션 끝나면 제거
+        setTimeout(() => {
+            particle.remove();
+        }, 600);
+    }
+});
 
 
