@@ -13,34 +13,19 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 document.body.appendChild(renderer.domElement);
 
-// --- 2. 조명 설정 (이미지의 질감을 극대화) ---
-// 전체를 비추는 기본 조명
-scene.add(new THREE.AmbientLight(0xffffff, 0.8)); 
+// --- 2. 조명 설정 (반사광 제거, 폭신하고 매트한 느낌) ---
+scene.add(new THREE.AmbientLight(0xffffff, 1.2)); // 그림자 없이 전체를 부드럽게 밝힘
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.5); // 하늘과 바닥 빛을 동일하게 주어 뽀송한 느낌 추가
+scene.add(hemiLight);
 
-// 측면에서 입체감을 주는 강력한 주광 (찰흙 덩어리 옆면을 밝힘)
-const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.5);
-sunLight.position.set(10, 10, 10);
-scene.add(sunLight);
-
-// 반대편에서 그림자 색감을 풍부하게 하는 보조광
-const fillLight = new THREE.DirectionalLight(0xaaccff, 0.9);
-fillLight.position.set(-5, 0, 5);
-scene.add(fillLight);
-
-// --- 3. [에러 해결 및 입체적 맵핑] 자체 그레이스케일 맵 생성을 통한 클레이 지구 만들기 ---
-const earthRadius = 2.5;
-// [고해상도 설정] 정교한 찰흙 지형을 표현하기 위해 구체의 분할 수를 256으로 대폭 늘림 (매우 부드러움)
+// --- 3. 평면도 맵핑된 클레이 지구 만들기 ---
+const earthRadius = 1.75; // [요청1] 기존 2.5 크기의 70%로 축소
 const earthGeometry = new THREE.SphereGeometry(earthRadius, 256, 256); 
 
-// 재질 설정
 let earthMaterial;
 const textureLoader = new THREE.TextureLoader();
 
-// 1) 사용자 이미지를 로딩하고 색감 보정
 const earthTexture = textureLoader.load('earth_texture.png', (texture) => {
-    // 이미지가 로딩되면, 브라우저에서 직접 이미지를 그레이스케일(흑백)로 변환하는 작업을 시작합니다.
-    // 이는 초록색(밝음)은 튀어나오고, 파란색(어두움)은 들어가게 만들기 위한 필수 작업입니다.
-    
     const canvas = document.createElement('canvas');
     canvas.width = texture.image.width;
     canvas.height = texture.image.height;
@@ -50,44 +35,39 @@ const earthTexture = textureLoader.load('earth_texture.png', (texture) => {
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imgData.data;
     
-    // 이미지를 한 픽셀씩 분석해서 흑백으로 변환 (초록색 부분은 밝게, 파란색 부분은 어둡게)
     for (let i = 0; i < data.length; i += 4) {
         const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        data[i]     = avg; // R
-        data[i + 1] = avg; // G
-        data[i + 2] = avg; // B
+        data[i] = data[i + 1] = data[i + 2] = avg;
     }
-    
     ctx.putImageData(imgData, 0, 0);
     
-    // 만들어진 그레이스케일 맵을 Three.js용 텍스처로 변환
     const grayTexture = new THREE.CanvasTexture(canvas);
     
-    // 2) [마법의 마법 소스] Displacement Map 설정
-    // grayTexture를 displacementMap으로 사용하여, 밝은 부분(초록색 대륙)을 실제 물리적으로 튀어나오게 만듭니다!
-    // roughnessMap에도 적용하여 대륙 부분이 바다보다 번들거림이 덜하게 만듭니다.
+    // [요청4] 경계선 및 꼭지점 꼬집힘 해결 (텍스처를 꽉 채우지 않고 여백을 바다로 연장)
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.repeat.set(0.9, 0.8); // 좌우 90%, 상하 80%만 맵핑
+    texture.offset.set(0.05, 0.1); // 남은 여백이 위아래 대칭이 되도록 중앙 정렬
+    
+    grayTexture.wrapS = THREE.ClampToEdgeWrapping;
+    grayTexture.wrapT = THREE.ClampToEdgeWrapping;
+    grayTexture.repeat.set(0.9, 0.8);
+    grayTexture.offset.set(0.05, 0.1);
+
     earthMaterial.displacementMap = grayTexture;
-    earthMaterial.roughnessMap = grayTexture; 
-    
-    // [입체감 조절] 대륙이 얼마나 튀어나올지 결정하는 값을 설정합니다. (너무 과하지 않게 살짝!)
-    earthMaterial.displacementScale = 0.15; 
-    
-    // [미세 조정] 바다가 살짝 들어가게 보이도록 음수 값으로 설정합니다.
+    earthMaterial.displacementScale = 0.1; // 지구가 작아졌으니 튀어나오는 비율도 자연스럽게 조절
     earthMaterial.displacementBias = -0.01; 
-    
-    earthMaterial.needsUpdate = true; // 변경 사항 적용
+    earthMaterial.needsUpdate = true; 
 });
 
-// 컬러 텍스처 설정
 earthTexture.colorSpace = THREE.SRGBColorSpace; 
 
-// 3) [입체적 재질] 매트한 클레이 재질 (Material) 설정
+// [요청3] 조명 반사가 아예 없는 폭신하고 매트한 재질
 earthMaterial = new THREE.MeshStandardMaterial({
-    map: earthTexture,       // 저장한 컬러 이미지를 표면에 인쇄 (색상)
-    roughness: 1.0,          // 번들거림 없이 완전 매트하게 (찰흙 질감 극대화)
+    map: earthTexture,
+    roughness: 1.0,  // 완전 매트하게
     metalness: 0.0,
-    flatShading: false,      // 산맥을 부드럽게 연결
-    envMapIntensity: 0.3     // 환경광 억제
+    flatShading: false
 });
 
 const earth = new THREE.Mesh(earthGeometry, earthMaterial);
@@ -108,15 +88,26 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
 
-    earth.rotation.y += 0.002; // 가만히 있어도 아주 천천히 회전
+    earth.rotation.y += 0.0002; // [요청2] 기존(0.002)의 0.1배속으로 아주 천천히 회전
 
     renderer.render(scene, camera);
 }
 animate();
 
-// --- 6. 창 크기 반응형 ---
-window.addEventListener('resize', () => {
+// --- 6. 창 크기 반응형 (+ 모바일 대응) ---
+function updateCamera() {
     camera.aspect = window.innerWidth / window.innerHeight;
+    
+    // 모바일 화면일 때 카메라를 더 뒤로 빼서 작고 귀엽게 보이도록 조정
+    if (window.innerWidth < 768) {
+        camera.position.z = 10; 
+    } else {
+        camera.position.z = 8;
+    }
+    
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-});
+}
+
+window.addEventListener('resize', updateCamera);
+updateCamera(); // 처음 페이지 로드 시에도 한 번 실행되도록 추가
